@@ -6,7 +6,8 @@ import { fileURLToPath } from 'url';
 
 const app = express();
 const port = process.env.PORT || 3000;
-const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
+const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
+const anthropicKey = process.env['ANTHROPIC_API_KEY'];
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,13 +23,11 @@ app.post('/api/complete', async (req, res) => {
       return res.status(400).json({ error: 'Missing prompt.' });
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return res.status(500).json({ error: 'Missing ANTHROPIC_API_KEY on the server.' });
+    if (!anthropicKey) {
+      return res.status(500).json({ error: 'Missing Anthropic key on the server.' });
     }
 
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
+    const anthropic = new Anthropic({ apiKey: anthropicKey });
 
     const message = await anthropic.messages.create({
       model,
