@@ -1,4 +1,6 @@
-// ai.jsx — wraps window.claude.complete with prompts for each surface.
+// ai.jsx — AI prompts for each Candle Desk surface.
+// Public hosting note: Railway calls Anthropic through /api/complete.
+// Claude Artifacts can still fall back to window.claude.complete.
 
 const TONE_LIBRARIAN = `You are the librarian voice of Candle Desk. Calm, exact, never effusive. Organize what is in front of you without judgment.`;
 const TONE_COMPANION = `You are the companion voice of Candle Desk. Warm, gentle, present. You reflect feelings back in plain words. You believe the person before you is good, and a little tired. You never lecture.`;
@@ -6,11 +8,32 @@ const TONE_PRODUCER = `You are the gentle producer voice of Candle Desk. You hel
 const TONE_PATTERN = `You are the pattern voice of Candle Desk. You read across many entries and notice what keeps returning. You name themes in 1-3 plain words.`;
 
 async function ai(prompt, opts = {}) {
-  if (!window.claude || !window.claude.complete) {
-    throw new Error('AI is not available in this environment.');
+  const max_tokens = opts.max_tokens || 1800;
+
+  try {
+    const res = await fetch('/api/complete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt, max_tokens }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return (data.text || '').trim();
+    }
+
+    const errText = await res.text();
+    throw new Error(errText || `AI request failed with status ${res.status}`);
+  } catch (serverError) {
+    // Keep Claude Artifact preview support as a graceful fallback.
+    if (window.claude && window.claude.complete) {
+      const text = await window.claude.complete(prompt);
+      return (text || '').trim();
+    }
+
+    console.error('Candle Desk AI error:', serverError);
+    throw serverError;
   }
-  const text = await window.claude.complete(prompt);
-  return (text || '').trim();
 }
 
 // Calm map for a single dump (Desk reflection).
@@ -144,7 +167,7 @@ ${text}
 
 Return only the formatted output — no preamble, no "here is your...".`;
 
-  return ai(prompt);
+  return ai(prompt, { max_tokens: 2200 });
 }
 
 // Theme map across many entries.
@@ -175,7 +198,7 @@ RETURN STRICT JSON ONLY:
 Entries:
 ${recentBatch}`;
 
-  const raw = await ai(prompt);
+  const raw = await ai(prompt, { max_tokens: 2200 });
   return safeJson(raw, { themes: [], throughline: '', buildable: '' });
 }
 
@@ -191,7 +214,7 @@ ${text.slice(0, 1500)}
 """
 
 Return just the sentence, no quotes.`;
-  return ai(prompt);
+  return ai(prompt, { max_tokens: 80 });
 }
 
 function safeJson(raw, fallback) {
