@@ -3,6 +3,7 @@ import cors from 'cors';
 import Anthropic from '@anthropic-ai/sdk';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { readFile } from 'fs/promises';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -11,6 +12,7 @@ const anthropicKey = process.env['ANTHROPIC_API_KEY'];
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const indexPath = path.join(__dirname, 'index.html');
 
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
@@ -55,10 +57,20 @@ app.post('/api/complete', async (req, res) => {
   }
 });
 
-app.use(express.static(__dirname));
+app.use(express.static(__dirname, { index: false }));
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+app.get('*', async (req, res) => {
+  try {
+    const html = await readFile(indexPath, 'utf8');
+    const withExtensions = html.replace(
+      '<script type="text/babel" src="screens.jsx"></script>',
+      '<script type="text/babel" src="screens.jsx"></script>\n  <script type="text/babel" src="workshop-artifacts-extension.jsx"></script>'
+    );
+    res.type('html').send(withExtensions);
+  } catch (error) {
+    console.error('Failed to serve Candle Desk index:', error);
+    res.status(500).send('Candle Desk could not load.');
+  }
 });
 
 app.listen(port, () => {
