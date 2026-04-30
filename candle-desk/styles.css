@@ -483,6 +483,12 @@ body {
 
 @media (max-width: 820px) {
   .river { grid-template-columns: 1fr; }
+  .river-side {
+    position: static;
+  }
+  .entry-list {
+    max-height: 40vh;
+  }
 }
 
 .river-side {

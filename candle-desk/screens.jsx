@@ -65,6 +65,7 @@ function DeskScreen({ store, setStore, toast, onJumpToWorkshop }) {
   const [reflecting, setReflecting] = useState(false);
   const [encouragement, setEncouragement] = useState('');
   const [saving, setSaving] = useState(false);
+  const [savedEntry, setSavedEntry] = useState(null);
   const taRef = useRef(null);
 
   const { listening, error, start, stop, supported } = useSpeechRecognition({
@@ -120,6 +121,7 @@ function DeskScreen({ store, setStore, toast, onJumpToWorkshop }) {
     setStore(next);
     setText('');
     setReflection(null);
+    setSavedEntry(entry);
     localStorage.removeItem('candleDesk.draft');
     setSaving(false);
     toast('Saved. The river holds it now.');
@@ -148,6 +150,31 @@ function DeskScreen({ store, setStore, toast, onJumpToWorkshop }) {
     setText('');
     setReflection(null);
     localStorage.removeItem('candleDesk.draft');
+  };
+
+  const handleDownloadJSON = (entry) => {
+    const d = new Date(entry.createdAt);
+    const payload = {
+      id: entry.id,
+      title: entry.title,
+      date: d.toLocaleDateString(),
+      time: d.toLocaleTimeString(),
+      createdAt: entry.createdAt,
+      tags: entry.tags || [],
+      text: entry.text,
+      reflection: entry.reflection || null,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const slug = (entry.title || 'entry').replace(/[^\w]+/g, '-').toLowerCase().slice(0, 40);
+    a.download = `brain-dump-${d.toISOString().slice(0, 10)}-${slug}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast('Downloaded as JSON.');
   };
 
   return (
@@ -186,6 +213,11 @@ function DeskScreen({ store, setStore, toast, onJumpToWorkshop }) {
           <button className="btn warm" onClick={handleSave} disabled={!text.trim() || saving}>
             {saving ? 'Saving…' : 'Save to river'}
           </button>
+          {savedEntry && (
+            <button className="btn tiny" onClick={() => handleDownloadJSON(savedEntry)}>
+              Download last entry (.json)
+            </button>
+          )}
           <button className="btn" onClick={handlePark} disabled={!text.trim()}>
             Park for later
           </button>
