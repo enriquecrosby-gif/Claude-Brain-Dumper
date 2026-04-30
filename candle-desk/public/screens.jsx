@@ -259,8 +259,16 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
   const [selectedId, setSelectedId] = useState(store.entries[0]?.id || null);
   const [themeMap, setThemeMap] = useState(null);
   const [weaving, setWeaving] = useState(false);
+  const detailRef = useRef(null);
 
   const selected = store.entries.find(e => e.id === selectedId) || store.entries[0];
+
+  // On mobile, scroll the detail panel into view when an entry is selected
+  useEffect(() => {
+    if (detailRef.current && window.innerWidth <= 820) {
+      detailRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [selectedId]);
 
   const localThemes = useMemo(() => aggregateThemes(store.entries), [store.entries]);
 
@@ -299,25 +307,28 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
   };
 
   const handleExportEntry = (entry) => {
-    const content = [
-      entry.title,
-      formatWhen(entry.createdAt),
-      (entry.tags || []).map(t => '#' + t).join(' '),
-      '',
-      entry.text,
-      '',
-      entry.reflection ? `\n— Calm map —\nFeeling: ${entry.reflection.feeling}\nMeaning: ${entry.reflection.meaning}\nNext stone: ${entry.reflection.stone}` : '',
-    ].join('\n');
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const d = new Date(entry.createdAt);
+    const payload = {
+      id: entry.id,
+      title: entry.title,
+      date: d.toLocaleDateString(),
+      time: d.toLocaleTimeString(),
+      createdAt: entry.createdAt,
+      tags: entry.tags || [],
+      text: entry.text,
+      reflection: entry.reflection || null,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${entry.title.replace(/[^\w]+/g, '-').toLowerCase()}.txt`;
+    const slug = (entry.title || 'entry').replace(/[^\w]+/g, '-').toLowerCase().slice(0, 40);
+    a.download = `brain-dump-${d.toISOString().slice(0, 10)}-${slug}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    toast('Entry downloaded.');
+    toast('Entry downloaded as JSON.');
   };
 
   if (!store.entries.length) {
@@ -386,7 +397,7 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
         </div>
       </aside>
 
-      <section className="surface">
+      <section className="surface" ref={detailRef}>
         {selected && (
           <>
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, marginBottom: 10, flexWrap: 'wrap'}}>
@@ -480,18 +491,42 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
 
   const handleDownload = () => {
     if (!output) return;
-    const ext = format === 'tasks' ? 'md' : 'md';
     const blob = new Blob([output], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     const stamp = new Date().toISOString().slice(0, 10);
-    a.download = `candle-desk-${format}-${stamp}.${ext}`;
+    a.download = `candle-desk-${format}-${stamp}.md`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
     toast('Downloaded.');
+  };
+
+  const handleDownloadJSON = () => {
+    if (!output) return;
+    const d = new Date();
+    const payload = {
+      format,
+      date: d.toLocaleDateString(),
+      time: d.toLocaleTimeString(),
+      createdAt: d.toISOString(),
+      sourceTitle: sourceEntry?.title || null,
+      sourceTags: sourceEntry?.tags || [],
+      sourceCreatedAt: sourceEntry?.createdAt || null,
+      output,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `workshop-${format}-${d.toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast('Downloaded as JSON.');
   };
 
   const handleAddPark = () => {
@@ -592,6 +627,7 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
             <div className="toolbar">
               <button className="btn" onClick={handleCopy}>Copy</button>
               <button className="btn" onClick={handleDownload}>Download (.md)</button>
+              <button className="btn" onClick={handleDownloadJSON}>Download (.json)</button>
               <div className="spacer"></div>
               <button className="btn ghost tiny" onClick={() => setOutput('')}>Clear output</button>
             </div>
