@@ -6,28 +6,12 @@ const TONE_PRODUCER = `You are the gentle producer voice of Candle Desk. You hel
 const TONE_PATTERN = `You are the pattern voice of Candle Desk. You read across many entries and notice what keeps returning. You name themes in 1-3 plain words.`;
 
 async function ai(prompt, opts = {}) {
-  const max_tokens = opts.max_tokens || 1800;
-
-  try {
-    const res = await fetch('/api/complete', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prompt, max_tokens }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      return (data.text || '').trim();
-    }
-  } catch {}
-
-  // Fallback to Claude artifact environment
   if (window.claude && window.claude.complete) {
     const text = await window.claude.complete(prompt);
     return (text || '').trim();
   }
 
-  throw new Error('AI unavailable');
+  throw new Error('Open this in Claude.ai to use AI features — the app needs to run as a Claude artifact.');
 }
 
 async function aiCalmMap(text) {

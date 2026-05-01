@@ -89,7 +89,7 @@ function DeskScreen({ store, setStore, toast, onJumpToWorkshop }) {
       setReflection(r);
       setEncouragement(r.encouragement || '');
     } catch (e) {
-      toast('The candle flickered. Try again.');
+      toast(e && e.message && e.message.length < 120 ? e.message : 'The candle flickered. Try again.');
       setReflection({
         feeling: 'There may be fog before words.',
         meaning: 'No need to force clarity right now.',
@@ -493,7 +493,7 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
       const result = await aiTransform(text, format, store.parking);
       setOutput(result);
     } catch (e) {
-      toast('The candle flickered. Try again.');
+      toast(e && e.message && e.message.length < 120 ? e.message : 'The candle flickered. Try again.');
     } finally {
       setWorking(false);
     }
