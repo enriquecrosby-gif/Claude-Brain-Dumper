@@ -180,42 +180,35 @@ function DeskScreen({ store, setStore, toast, onJumpToWorkshop }) {
   return (
     <div className="desk-stage">
       <div className="surface">
-        <p className="desk-prompt">Pour out the river. The page will hold the first shape.</p>
-
-        <div className="mic-stage">
-          <button
-            className={'mic-button' + (listening ? ' recording' : '')}
-            onClick={handleMicClick}
-            disabled={!supported}
-            aria-label={listening ? 'Stop voice' : 'Start voice'}
-          >
-            {listening ? 'listening…' : (supported ? 'speak' : 'voice off')}
-          </button>
-          <p className="mic-status">
-            {error || (listening
-              ? 'I am here. Take your time.'
-              : (supported ? 'Press to speak. Or just write below.' : 'Try Chrome on this device for voice.'))}
-          </p>
-        </div>
+        <p className="desk-prompt">What's with you today? Pour it out.</p>
 
         <textarea
           ref={taRef}
           className="journal"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Or type here. Start anywhere: I am feeling…&#10;&#10;What is on my mind right now…&#10;&#10;An idea that won't leave me alone…"
+          placeholder="Start anywhere…&#10;&#10;I've been thinking about… / What's heavy right now… / An idea I can't shake…"
         />
 
         <div className="toolbar">
+          {supported && (
+            <button
+              className={'btn mic-inline' + (listening ? ' recording' : '')}
+              onClick={handleMicClick}
+              title={listening ? 'Stop voice' : 'Tap to speak'}
+            >
+              {listening ? '● listening' : '🎙 speak'}
+            </button>
+          )}
           <button className="btn primary" onClick={handleReflect} disabled={!text.trim() || reflecting}>
-            {reflecting ? <span className="thinking"><span className="dot"></span><span className="dot"></span><span className="dot"></span></span> : 'Make a calm map'}
+            {reflecting ? <span className="thinking"><span className="dot"></span><span className="dot"></span><span className="dot"></span></span> : 'Reflect'}
           </button>
           <button className="btn warm" onClick={handleSave} disabled={!text.trim() || saving}>
             {saving ? 'Saving…' : 'Save to river'}
           </button>
           {savedEntry && (
             <button className="btn tiny" onClick={() => handleDownloadJSON(savedEntry)}>
-              Download last entry (.json)
+              Download (.json)
             </button>
           )}
           <button className="btn" onClick={handlePark} disabled={!text.trim()}>
@@ -446,13 +439,35 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
 // ─────────────────────────────────────────────────────────────────────
 // WORKSHOP SCREEN — turn dump into outputs + parking lot
 // ─────────────────────────────────────────────────────────────────────
-const FORMATS = [
-  { id: 'journal',  icon: '✒',  name: 'Journal entry',    hint: 'Quiet prose, your voice kept whole' },
-  { id: 'article',  icon: '§',  name: 'Substack article', hint: '600–900 words, with a spine' },
-  { id: 'tiktok',   icon: '▶',  name: 'TikTok script',    hint: '30–60s, hook + beats' },
+const FORMATS_FEATURED = [
+  { id: 'journal',  icon: '✒',  name: 'Journal entry',    hint: 'Your voice, kept whole' },
+  { id: 'article',  icon: '§',  name: 'Substack article', hint: '600–900 words, one spine' },
   { id: 'product',  icon: '◐',  name: 'Product idea',     hint: 'Smallest buildable form' },
-  { id: 'tasks',    icon: '·',  name: 'Next-stone tasks', hint: 'One thing at a time' },
+  { id: 'tiktok',   icon: '▶',  name: 'TikTok script',    hint: '30–60s, hook + beats' },
 ];
+
+const FORMATS_MORE = [
+  { id: 'tasks',   icon: '·',  name: 'Next-stone tasks', hint: 'One thing at a time' },
+  { id: 'letter',  icon: '✉',  name: 'Letter to self',   hint: 'Private, epistolary' },
+  { id: 'song',    icon: '♪',  name: 'Song / poem',      hint: 'Lyrical, from your voice' },
+  { id: 'email',   icon: '→',  name: 'Email / message',  hint: 'Clear thoughts to send' },
+  { id: 'image',   icon: '◻',  name: 'Image prompt',     hint: 'A scene for AI to paint' },
+];
+
+const ALL_FORMATS = [...FORMATS_FEATURED, ...FORMATS_MORE];
+
+function FormatCard({ f, active, onSelect }) {
+  return (
+    <button
+      className={'format-card' + (active ? ' active' : '')}
+      onClick={() => onSelect(f.id)}
+    >
+      <span className="icon">{f.icon}</span>
+      <span className="name">{f.name}</span>
+      <span className="hint">{f.hint}</span>
+    </button>
+  );
+}
 
 function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }) {
   const sourceEntry = store.entries.find(e => e.id === sourceEntryId);
@@ -460,6 +475,7 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
   const [format, setFormat] = useState('product');
   const [output, setOutput] = useState('');
   const [working, setWorking] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const [parkingDraft, setParkingDraft] = useState('');
 
   useEffect(() => {
@@ -549,18 +565,31 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
       <aside className="surface">
         <span className="label">Shape it into</span>
         <div className="format-grid" style={{marginTop: 10}}>
-          {FORMATS.map(f => (
-            <button
-              key={f.id}
-              className={'format-card' + (format === f.id ? ' active' : '')}
-              onClick={() => setFormat(f.id)}
-            >
-              <span className="icon">{f.icon}</span>
-              <span className="name">{f.name}</span>
-              <span className="hint">{f.hint}</span>
-            </button>
+          {FORMATS_FEATURED.map(f => (
+            <FormatCard key={f.id} f={f} active={format === f.id} onSelect={setFormat} />
           ))}
+          {FORMATS_MORE.find(f => f.id === format) && (
+            <FormatCard
+              f={FORMATS_MORE.find(f => f.id === format)}
+              active={true}
+              onSelect={setFormat}
+            />
+          )}
         </div>
+        <button
+          className="btn ghost tiny"
+          style={{marginTop: 8, width: '100%', textAlign: 'center'}}
+          onClick={() => setShowMore(s => !s)}
+        >
+          {showMore ? 'Fewer ↑' : 'More shapes… ↓'}
+        </button>
+        {showMore && (
+          <div className="format-grid" style={{marginTop: 6}}>
+            {FORMATS_MORE.filter(f => f.id !== format).map(f => (
+              <FormatCard key={f.id} f={f} active={false} onSelect={(id) => { setFormat(id); setShowMore(false); }} />
+            ))}
+          </div>
+        )}
 
         <div className="parking-lot">
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
@@ -615,7 +644,7 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
 
         <div className="toolbar">
           <button className="btn primary" onClick={handleTransform} disabled={working || !text.trim()}>
-            {working ? <span className="thinking"><span className="dot"></span><span className="dot"></span><span className="dot"></span></span> : `Shape into ${FORMATS.find(f => f.id === format).name.toLowerCase()}`}
+            {working ? <span className="thinking"><span className="dot"></span><span className="dot"></span><span className="dot"></span></span> : `Shape into ${ALL_FORMATS.find(f => f.id === format)?.name.toLowerCase() || format}`}
           </button>
         </div>
 

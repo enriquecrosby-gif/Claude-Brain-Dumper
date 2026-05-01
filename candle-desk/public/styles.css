@@ -88,13 +88,22 @@ body {
   font-family: var(--font-text);
   color: var(--ink);
   background:
-    radial-gradient(ellipse at top, var(--bg-tint), transparent 55%),
-    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 55%, var(--bg-3) 100%);
+    radial-gradient(ellipse at 30% 10%, var(--bg-tint), transparent 50%),
+    radial-gradient(ellipse at 70% 90%, rgba(100, 70, 30, 0.08), transparent 45%),
+    linear-gradient(160deg, var(--bg-1) 0%, var(--bg-2) 50%, var(--bg-3) 100%);
   background-attachment: fixed;
   font-size: 18px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+[data-theme="library"] body {
+  background:
+    radial-gradient(ellipse at 25% 15%, rgba(199, 138, 61, 0.18) 0%, transparent 45%),
+    radial-gradient(ellipse at 75% 85%, rgba(185, 84, 62, 0.10) 0%, transparent 40%),
+    linear-gradient(160deg, #1a1208 0%, #221810 40%, #160f08 100%);
+  background-attachment: fixed;
 }
 
 /* ── App shell ──────────────────────────────────────────────────────── */
@@ -299,102 +308,32 @@ body {
 .desk-prompt {
   font-family: var(--font-display);
   font-style: italic;
-  font-size: 1.35rem;
+  font-size: 1.5rem;
   color: var(--muted);
   text-align: center;
-  margin: 8px 0 0;
+  margin: 0 0 18px;
   line-height: 1.4;
+  letter-spacing: 0.01em;
 }
 
-.mic-stage {
-  display: grid;
-  place-items: center;
-  padding: 28px 0 18px;
-  position: relative;
+.mic-inline {
+  font-size: 0.9rem;
+  padding: 7px 14px;
+  letter-spacing: 0.02em;
+  transition: background 0.2s, box-shadow 0.3s;
 }
 
-.mic-button {
-  appearance: none;
-  width: 168px;
-  height: 168px;
-  border-radius: 50%;
-  border: 0;
-  background: radial-gradient(circle at 50% 35%, var(--candle), var(--ember));
-  box-shadow:
-    0 0 0 8px rgba(255, 250, 240, 0.6),
-    0 0 0 9px var(--line-soft),
-    0 14px 50px rgba(199, 138, 61, 0.45),
-    0 0 70px rgba(220, 139, 53, 0.3);
-  color: #fff5dc;
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  font-style: italic;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  position: relative;
-  transition: transform 0.2s, box-shadow 0.3s;
-}
-
-[data-theme="library"] .mic-button {
-  box-shadow:
-    0 0 0 6px rgba(60, 48, 32, 0.6),
-    0 0 0 7px var(--line-soft),
-    0 14px 50px rgba(220, 139, 53, 0.45),
-    0 0 90px rgba(220, 139, 53, 0.4);
-}
-
-.mic-button:hover { transform: scale(1.03); }
-.mic-button.recording {
-  animation: breathe 2.2s ease-in-out infinite;
-}
-
-@keyframes breathe {
-  0%, 100% {
-    box-shadow:
-      0 0 0 8px rgba(255, 250, 240, 0.6),
-      0 0 0 9px var(--line-soft),
-      0 14px 50px rgba(199, 138, 61, 0.45),
-      0 0 70px rgba(220, 139, 53, 0.4);
-  }
-  50% {
-    box-shadow:
-      0 0 0 14px rgba(255, 250, 240, 0.5),
-      0 0 0 15px var(--line-soft),
-      0 14px 60px rgba(199, 138, 61, 0.6),
-      0 0 110px rgba(220, 139, 53, 0.55);
-  }
-}
-
-.mic-status {
-  text-align: center;
-  font-family: var(--font-display);
-  font-style: italic;
-  color: var(--muted);
-  margin-top: 14px;
-  min-height: 1.4em;
-}
-
-.mic-mini {
-  appearance: none;
-  border: 0.5px solid var(--line-soft);
-  background: var(--paper);
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: inline-grid;
-  place-items: center;
-  cursor: pointer;
-  margin-left: 8px;
-  color: var(--ember);
-}
-.mic-mini.recording {
+.mic-inline.recording {
   background: var(--ember);
-  color: #fff;
+  color: var(--paper);
+  border-color: transparent;
+  box-shadow: 0 0 0 3px rgba(185, 84, 62, 0.22);
   animation: breathe-mini 1.6s ease-in-out infinite;
 }
+
 @keyframes breathe-mini {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(185, 84, 62, 0.4); }
-  50%      { box-shadow: 0 0 0 8px rgba(185, 84, 62, 0); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(185, 84, 62, 0.22); }
+  50%      { box-shadow: 0 0 0 7px rgba(185, 84, 62, 0.08); }
 }
 
 /* ── Journal textarea ──────────────────────────────────────────────── */
@@ -650,7 +589,7 @@ body {
   border: 0.5px solid var(--line-soft);
   background: var(--paper);
   border-radius: 9px;
-  padding: 14px;
+  padding: 10px 12px;
   cursor: pointer;
   font-family: var(--font-text);
   color: var(--ink);
@@ -667,23 +606,23 @@ body {
 }
 .format-card .icon {
   font-family: var(--font-display);
-  font-size: 1.6rem;
+  font-size: 1.3rem;
   font-style: italic;
   color: var(--accent);
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 .format-card .name {
   font-family: var(--font-display);
-  font-size: 1.05rem;
+  font-size: 0.98rem;
   font-weight: 500;
 }
 .format-card .hint {
   display: block;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--muted);
-  margin-top: 2px;
-  line-height: 1.35;
+  margin-top: 1px;
+  line-height: 1.3;
 }
 
 .parking-lot {
