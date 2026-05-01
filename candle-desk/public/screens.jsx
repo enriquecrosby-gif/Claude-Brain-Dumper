@@ -439,22 +439,18 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
 // ─────────────────────────────────────────────────────────────────────
 // WORKSHOP SCREEN — turn dump into outputs + parking lot
 // ─────────────────────────────────────────────────────────────────────
-const FORMATS_FEATURED = [
+const FORMATS = [
   { id: 'journal',  icon: '✒',  name: 'Journal entry',    hint: 'Your voice, kept whole' },
   { id: 'article',  icon: '§',  name: 'Substack article', hint: '600–900 words, one spine' },
   { id: 'product',  icon: '◐',  name: 'Product idea',     hint: 'Smallest buildable form' },
   { id: 'tiktok',   icon: '▶',  name: 'TikTok script',    hint: '30–60s, hook + beats' },
+  { id: 'tasks',    icon: '·',  name: 'Next-stone tasks', hint: 'One thing at a time' },
+  { id: 'letter',   icon: '✉',  name: 'Letter to self',   hint: 'Private, epistolary' },
+  { id: 'song',     icon: '♪',  name: 'Song / poem',      hint: 'Lyrical, from your voice' },
+  { id: 'suno',     icon: '♫',  name: 'Suno prompt',      hint: 'Ready to paste into Suno' },
+  { id: 'email',    icon: '→',  name: 'Email / message',  hint: 'Clear thoughts to send' },
+  { id: 'image',    icon: '◻',  name: 'Image prompt',     hint: 'A scene for AI to paint' },
 ];
-
-const FORMATS_MORE = [
-  { id: 'tasks',   icon: '·',  name: 'Next-stone tasks', hint: 'One thing at a time' },
-  { id: 'letter',  icon: '✉',  name: 'Letter to self',   hint: 'Private, epistolary' },
-  { id: 'song',    icon: '♪',  name: 'Song / poem',      hint: 'Lyrical, from your voice' },
-  { id: 'email',   icon: '→',  name: 'Email / message',  hint: 'Clear thoughts to send' },
-  { id: 'image',   icon: '◻',  name: 'Image prompt',     hint: 'A scene for AI to paint' },
-];
-
-const ALL_FORMATS = [...FORMATS_FEATURED, ...FORMATS_MORE];
 
 function FormatCard({ f, active, onSelect }) {
   return (
@@ -475,7 +471,6 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
   const [format, setFormat] = useState('product');
   const [output, setOutput] = useState('');
   const [working, setWorking] = useState(false);
-  const [showMore, setShowMore] = useState(false);
   const [parkingDraft, setParkingDraft] = useState('');
 
   useEffect(() => {
@@ -565,31 +560,10 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
       <aside className="surface">
         <span className="label">Shape it into</span>
         <div className="format-grid" style={{marginTop: 10}}>
-          {FORMATS_FEATURED.map(f => (
+          {FORMATS.map(f => (
             <FormatCard key={f.id} f={f} active={format === f.id} onSelect={setFormat} />
           ))}
-          {FORMATS_MORE.find(f => f.id === format) && (
-            <FormatCard
-              f={FORMATS_MORE.find(f => f.id === format)}
-              active={true}
-              onSelect={setFormat}
-            />
-          )}
         </div>
-        <button
-          className="btn ghost tiny"
-          style={{marginTop: 8, width: '100%', textAlign: 'center'}}
-          onClick={() => setShowMore(s => !s)}
-        >
-          {showMore ? 'Fewer ↑' : 'More shapes… ↓'}
-        </button>
-        {showMore && (
-          <div className="format-grid" style={{marginTop: 6}}>
-            {FORMATS_MORE.filter(f => f.id !== format).map(f => (
-              <FormatCard key={f.id} f={f} active={false} onSelect={(id) => { setFormat(id); setShowMore(false); }} />
-            ))}
-          </div>
-        )}
 
         <div className="parking-lot">
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
@@ -644,7 +618,7 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
 
         <div className="toolbar">
           <button className="btn primary" onClick={handleTransform} disabled={working || !text.trim()}>
-            {working ? <span className="thinking"><span className="dot"></span><span className="dot"></span><span className="dot"></span></span> : `Shape into ${ALL_FORMATS.find(f => f.id === format)?.name.toLowerCase() || format}`}
+            {working ? <span className="thinking"><span className="dot"></span><span className="dot"></span><span className="dot"></span></span> : `Shape into ${FORMATS.find(f => f.id === format)?.name.toLowerCase() || format}`}
           </button>
         </div>
 

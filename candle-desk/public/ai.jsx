@@ -6,12 +6,26 @@ const TONE_PRODUCER = `You are the gentle producer voice of Candle Desk. You hel
 const TONE_PATTERN = `You are the pattern voice of Candle Desk. You read across many entries and notice what keeps returning. You name themes in 1-3 plain words.`;
 
 async function ai(prompt, opts = {}) {
+  const max_tokens = opts.max_tokens || 1800;
+
+  try {
+    const res = await fetch('/api/complete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt, max_tokens }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return (data.text || '').trim();
+    }
+  } catch {}
+
   if (window.claude && window.claude.complete) {
     const text = await window.claude.complete(prompt);
     return (text || '').trim();
   }
 
-  throw new Error('Open this in Claude.ai to use AI features — the app needs to run as a Claude artifact.');
+  throw new Error('AI unavailable — add your ANTHROPIC_API_KEY in Railway environment variables.');
 }
 
 async function aiCalmMap(text) {
@@ -144,6 +158,17 @@ Subject: [...]
 **Style:** [e.g. "warm oil painting", "misty film photograph", "candlelit illustration"]
 **Palette:** [3-5 colors as words]
 **Prompt for AI image tool:** [one dense paragraph ready to paste into Midjourney / DALL-E / Stable Diffusion]`,
+
+    suno: `Read this brain dump and craft a Suno AI song prompt. Suno has a strict 1000-character limit — stay well under it. Make it emotionally specific and ready to paste.
+
+Return in this exact format:
+
+**Title:** [evocative title, 3–6 words]
+**Genre:** [specific genre or fusion, e.g. "dark indie folk", "lo-fi R&B", "ethereal dream pop"]
+**Mood:** [2–3 feeling words, comma-separated]
+
+**Suno prompt** (paste this directly into Suno — must be under 900 characters, single paragraph, no line breaks):
+[genre descriptors, vocal style, instrumentation, tempo, emotional arc — dense but under 900 characters]`,
   };
 
   const formatPrompt = formatPrompts[format];

@@ -3,6 +3,6 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "npm run preview -- --port $PORT --host"
+    "startCommand": "node server.js"
   }
 }
