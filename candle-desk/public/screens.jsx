@@ -2,7 +2,39 @@
 
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
-// ── Voice recognition hook ────────────────────────────────────────────
+// ── Markdown export helper ────────────────────────────────────────────
+function entryToMD(entry) {
+  const d = new Date(entry.createdAt);
+  const dateStr = d.toISOString().slice(0, 10);
+  const tags = (entry.tags || []).map(t => `  - ${t}`).join('\n');
+  let md = `---\ntitle: "${(entry.title || 'Brain dump').replace(/"/g, '\\"')}"\ndate: ${dateStr}\n`;
+  if (tags) md += `tags:\n${tags}\n`;
+  md += `---\n\n${entry.text}`;
+  if (entry.reflection) {
+    md += `\n\n---\n\n## Calm Map\n\n**Feeling:** ${entry.reflection.feeling}\n\n**Meaning:** ${entry.reflection.meaning}\n\n**Next stone:** ${entry.reflection.stone}\n`;
+  }
+  return md;
+}
+
+function downloadMD(filename, content) {
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function downloadJSON(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+
 function useSpeechRecognition({ onText }) {
   const recRef = useRef(null);
   const [listening, setListening] = useState(false);
@@ -152,28 +184,25 @@ function DeskScreen({ store, setStore, toast, onJumpToWorkshop }) {
     localStorage.removeItem('candleDesk.draft');
   };
 
+  const entrySlug = (entry) => {
+    const d = new Date(entry.createdAt);
+    const slug = (entry.title || 'entry').replace(/[^\w]+/g, '-').toLowerCase().slice(0, 40);
+    return `brain-dump-${d.toISOString().slice(0, 10)}-${slug}`;
+  };
+
+  const handleDownloadMD = (entry) => {
+    downloadMD(entrySlug(entry) + '.md', entryToMD(entry));
+    toast('Downloaded as .md — drop it into your Obsidian vault.');
+  };
+
   const handleDownloadJSON = (entry) => {
     const d = new Date(entry.createdAt);
-    const payload = {
-      id: entry.id,
-      title: entry.title,
-      date: d.toLocaleDateString(),
-      time: d.toLocaleTimeString(),
-      createdAt: entry.createdAt,
-      tags: entry.tags || [],
-      text: entry.text,
-      reflection: entry.reflection || null,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const slug = (entry.title || 'entry').replace(/[^\w]+/g, '-').toLowerCase().slice(0, 40);
-    a.download = `brain-dump-${d.toISOString().slice(0, 10)}-${slug}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadJSON(entrySlug(entry) + '.json', {
+      id: entry.id, title: entry.title,
+      date: d.toLocaleDateString(), time: d.toLocaleTimeString(),
+      createdAt: entry.createdAt, tags: entry.tags || [],
+      text: entry.text, reflection: entry.reflection || null,
+    });
     toast('Downloaded as JSON.');
   };
 
@@ -207,9 +236,10 @@ function DeskScreen({ store, setStore, toast, onJumpToWorkshop }) {
             {saving ? 'Saving…' : 'Save to river'}
           </button>
           {savedEntry && (
-            <button className="btn tiny" onClick={() => handleDownloadJSON(savedEntry)}>
-              Download (.json)
-            </button>
+            <>
+              <button className="btn tiny" onClick={() => handleDownloadMD(savedEntry)}>Save (.md)</button>
+              <button className="btn tiny" onClick={() => handleDownloadJSON(savedEntry)}>Save (.json)</button>
+            </>
           )}
           <button className="btn" onClick={handlePark} disabled={!text.trim()}>
             Park for later
@@ -285,43 +315,40 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
     toast('Removed.');
   };
 
-  const handleExport = () => {
-    const blob = new Blob([JSON.stringify(store, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const stamp = new Date().toISOString().slice(0, 10);
-    a.download = `candle-desk-${stamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    toast('Downloaded. Move it into your Drive or OneDrive.');
+  const entrySlug = (entry) => {
+    const d = new Date(entry.createdAt);
+    const slug = (entry.title || 'entry').replace(/[^\w]+/g, '-').toLowerCase().slice(0, 40);
+    return `brain-dump-${d.toISOString().slice(0, 10)}-${slug}`;
+  };
+
+  const handleExportEntryMD = (entry) => {
+    downloadMD(entrySlug(entry) + '.md', entryToMD(entry));
+    toast('Downloaded as .md — drop it into your Obsidian vault.');
   };
 
   const handleExportEntry = (entry) => {
     const d = new Date(entry.createdAt);
-    const payload = {
-      id: entry.id,
-      title: entry.title,
-      date: d.toLocaleDateString(),
-      time: d.toLocaleTimeString(),
-      createdAt: entry.createdAt,
-      tags: entry.tags || [],
-      text: entry.text,
-      reflection: entry.reflection || null,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const slug = (entry.title || 'entry').replace(/[^\w]+/g, '-').toLowerCase().slice(0, 40);
-    a.download = `brain-dump-${d.toISOString().slice(0, 10)}-${slug}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadJSON(entrySlug(entry) + '.json', {
+      id: entry.id, title: entry.title,
+      date: d.toLocaleDateString(), time: d.toLocaleTimeString(),
+      createdAt: entry.createdAt, tags: entry.tags || [],
+      text: entry.text, reflection: entry.reflection || null,
+    });
     toast('Entry downloaded as JSON.');
+  };
+
+  const handleExport = () => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadJSON(`candle-desk-${stamp}.json`, store);
+    toast('All entries downloaded as JSON.');
+  };
+
+  const handleExportAllMD = () => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    const combined = store.entries.map(e => entryToMD(e)).join('\n\n---\n\n');
+    const header = `# Candle Desk — All Brain Dumps\n\nExported: ${stamp}\n\n---\n\n`;
+    downloadMD(`candle-desk-all-${stamp}.md`, header + combined);
+    toast('All entries downloaded as one .md file.');
   };
 
   if (!store.entries.length) {
@@ -420,7 +447,8 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
 
             <div className="toolbar">
               <button className="btn primary" onClick={() => onSendToWorkshop(selected.id)}>Send to Workshop →</button>
-              <button className="btn" onClick={() => handleExportEntry(selected)}>Download entry</button>
+              <button className="btn" onClick={() => handleExportEntryMD(selected)}>Save (.md)</button>
+              <button className="btn" onClick={() => handleExportEntry(selected)}>Save (.json)</button>
               <div className="spacer"></div>
               <button className="btn ghost tiny" onClick={() => handleDelete(selected.id)}>Remove</button>
             </div>
@@ -429,7 +457,8 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
 
         <div className="divider"></div>
         <div className="toolbar">
-          <button className="btn tiny" onClick={handleExport}>Export all (.json) for Drive / OneDrive</button>
+          <button className="btn tiny" onClick={handleExportAllMD}>Export all (.md)</button>
+          <button className="btn tiny" onClick={handleExport}>Export all (.json)</button>
         </div>
       </section>
     </div>
