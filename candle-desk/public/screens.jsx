@@ -2,7 +2,39 @@
 
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
-// ── Voice recognition hook ────────────────────────────────────────────
+// ── Markdown export helper ────────────────────────────────────────────
+function entryToMD(entry) {
+  const d = new Date(entry.createdAt);
+  const dateStr = d.toISOString().slice(0, 10);
+  const tags = (entry.tags || []).map(t => `  - ${t}`).join('\n');
+  let md = `---\ntitle: "${(entry.title || 'Brain dump').replace(/"/g, '\\"')}"\ndate: ${dateStr}\n`;
+  if (tags) md += `tags:\n${tags}\n`;
+  md += `---\n\n${entry.text}`;
+  if (entry.reflection) {
+    md += `\n\n---\n\n## Calm Map\n\n**Feeling:** ${entry.reflection.feeling}\n\n**Meaning:** ${entry.reflection.meaning}\n\n**Next stone:** ${entry.reflection.stone}\n`;
+  }
+  return md;
+}
+
+function downloadMD(filename, content) {
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function downloadJSON(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+
 function useSpeechRecognition({ onText }) {
   const recRef = useRef(null);
   const [listening, setListening] = useState(false);
@@ -65,6 +97,7 @@ function DeskScreen({ store, setStore, toast, onJumpToWorkshop }) {
   const [reflecting, setReflecting] = useState(false);
   const [encouragement, setEncouragement] = useState('');
   const [saving, setSaving] = useState(false);
+  const [savedEntry, setSavedEntry] = useState(null);
   const taRef = useRef(null);
 
   const { listening, error, start, stop, supported } = useSpeechRecognition({
@@ -88,7 +121,7 @@ function DeskScreen({ store, setStore, toast, onJumpToWorkshop }) {
       setReflection(r);
       setEncouragement(r.encouragement || '');
     } catch (e) {
-      toast('The candle flickered. Try again.');
+      toast(e && e.message && e.message.length < 120 ? e.message : 'The candle flickered. Try again.');
       setReflection({
         feeling: 'There may be fog before words.',
         meaning: 'No need to force clarity right now.',
@@ -120,6 +153,7 @@ function DeskScreen({ store, setStore, toast, onJumpToWorkshop }) {
     setStore(next);
     setText('');
     setReflection(null);
+    setSavedEntry(entry);
     localStorage.removeItem('candleDesk.draft');
     setSaving(false);
     toast('Saved. The river holds it now.');
@@ -150,42 +184,63 @@ function DeskScreen({ store, setStore, toast, onJumpToWorkshop }) {
     localStorage.removeItem('candleDesk.draft');
   };
 
+  const entrySlug = (entry) => {
+    const d = new Date(entry.createdAt);
+    const slug = (entry.title || 'entry').replace(/[^\w]+/g, '-').toLowerCase().slice(0, 40);
+    return `brain-dump-${d.toISOString().slice(0, 10)}-${slug}`;
+  };
+
+  const handleDownloadMD = (entry) => {
+    downloadMD(entrySlug(entry) + '.md', entryToMD(entry));
+    toast('Downloaded as .md — drop it into your Obsidian vault.');
+  };
+
+  const handleDownloadJSON = (entry) => {
+    const d = new Date(entry.createdAt);
+    downloadJSON(entrySlug(entry) + '.json', {
+      id: entry.id, title: entry.title,
+      date: d.toLocaleDateString(), time: d.toLocaleTimeString(),
+      createdAt: entry.createdAt, tags: entry.tags || [],
+      text: entry.text, reflection: entry.reflection || null,
+    });
+    toast('Downloaded as JSON.');
+  };
+
   return (
     <div className="desk-stage">
       <div className="surface">
-        <p className="desk-prompt">Pour out the river. The page will hold the first shape.</p>
-
-        <div className="mic-stage">
-          <button
-            className={'mic-button' + (listening ? ' recording' : '')}
-            onClick={handleMicClick}
-            disabled={!supported}
-            aria-label={listening ? 'Stop voice' : 'Start voice'}
-          >
-            {listening ? 'listening…' : (supported ? 'speak' : 'voice off')}
-          </button>
-          <p className="mic-status">
-            {error || (listening
-              ? 'I am here. Take your time.'
-              : (supported ? 'Press to speak. Or just write below.' : 'Try Chrome on this device for voice.'))}
-          </p>
-        </div>
+        <p className="desk-prompt">What's with you today? Pour it out.</p>
 
         <textarea
           ref={taRef}
           className="journal"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Or type here. Start anywhere: I am feeling…&#10;&#10;What is on my mind right now…&#10;&#10;An idea that won't leave me alone…"
+          placeholder="Start anywhere…&#10;&#10;I've been thinking about… / What's heavy right now… / An idea I can't shake…"
         />
 
         <div className="toolbar">
+          {supported && (
+            <button
+              className={'btn mic-inline' + (listening ? ' recording' : '')}
+              onClick={handleMicClick}
+              title={listening ? 'Stop voice' : 'Tap to speak'}
+            >
+              {listening ? '● listening' : '🎙 speak'}
+            </button>
+          )}
           <button className="btn primary" onClick={handleReflect} disabled={!text.trim() || reflecting}>
-            {reflecting ? <span className="thinking"><span className="dot"></span><span className="dot"></span><span className="dot"></span></span> : 'Make a calm map'}
+            {reflecting ? <span className="thinking"><span className="dot"></span><span className="dot"></span><span className="dot"></span></span> : 'Reflect'}
           </button>
           <button className="btn warm" onClick={handleSave} disabled={!text.trim() || saving}>
             {saving ? 'Saving…' : 'Save to river'}
           </button>
+          {savedEntry && (
+            <>
+              <button className="btn tiny" onClick={() => handleDownloadMD(savedEntry)}>Save (.md)</button>
+              <button className="btn tiny" onClick={() => handleDownloadJSON(savedEntry)}>Save (.json)</button>
+            </>
+          )}
           <button className="btn" onClick={handlePark} disabled={!text.trim()}>
             Park for later
           </button>
@@ -227,8 +282,16 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
   const [selectedId, setSelectedId] = useState(store.entries[0]?.id || null);
   const [themeMap, setThemeMap] = useState(null);
   const [weaving, setWeaving] = useState(false);
+  const detailRef = useRef(null);
 
   const selected = store.entries.find(e => e.id === selectedId) || store.entries[0];
+
+  // On mobile, scroll the detail panel into view when an entry is selected
+  useEffect(() => {
+    if (detailRef.current && window.innerWidth <= 820) {
+      detailRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [selectedId]);
 
   const localThemes = useMemo(() => aggregateThemes(store.entries), [store.entries]);
 
@@ -252,40 +315,40 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
     toast('Removed.');
   };
 
-  const handleExport = () => {
-    const blob = new Blob([JSON.stringify(store, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const stamp = new Date().toISOString().slice(0, 10);
-    a.download = `candle-desk-${stamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    toast('Downloaded. Move it into your Drive or OneDrive.');
+  const entrySlug = (entry) => {
+    const d = new Date(entry.createdAt);
+    const slug = (entry.title || 'entry').replace(/[^\w]+/g, '-').toLowerCase().slice(0, 40);
+    return `brain-dump-${d.toISOString().slice(0, 10)}-${slug}`;
+  };
+
+  const handleExportEntryMD = (entry) => {
+    downloadMD(entrySlug(entry) + '.md', entryToMD(entry));
+    toast('Downloaded as .md — drop it into your Obsidian vault.');
   };
 
   const handleExportEntry = (entry) => {
-    const content = [
-      entry.title,
-      formatWhen(entry.createdAt),
-      (entry.tags || []).map(t => '#' + t).join(' '),
-      '',
-      entry.text,
-      '',
-      entry.reflection ? `\n— Calm map —\nFeeling: ${entry.reflection.feeling}\nMeaning: ${entry.reflection.meaning}\nNext stone: ${entry.reflection.stone}` : '',
-    ].join('\n');
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${entry.title.replace(/[^\w]+/g, '-').toLowerCase()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    toast('Entry downloaded.');
+    const d = new Date(entry.createdAt);
+    downloadJSON(entrySlug(entry) + '.json', {
+      id: entry.id, title: entry.title,
+      date: d.toLocaleDateString(), time: d.toLocaleTimeString(),
+      createdAt: entry.createdAt, tags: entry.tags || [],
+      text: entry.text, reflection: entry.reflection || null,
+    });
+    toast('Entry downloaded as JSON.');
+  };
+
+  const handleExport = () => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadJSON(`candle-desk-${stamp}.json`, store);
+    toast('All entries downloaded as JSON.');
+  };
+
+  const handleExportAllMD = () => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    const combined = store.entries.map(e => entryToMD(e)).join('\n\n---\n\n');
+    const header = `# Candle Desk — All Brain Dumps\n\nExported: ${stamp}\n\n---\n\n`;
+    downloadMD(`candle-desk-all-${stamp}.md`, header + combined);
+    toast('All entries downloaded as one .md file.');
   };
 
   if (!store.entries.length) {
@@ -354,7 +417,7 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
         </div>
       </aside>
 
-      <section className="surface">
+      <section className="surface" ref={detailRef}>
         {selected && (
           <>
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, marginBottom: 10, flexWrap: 'wrap'}}>
@@ -384,7 +447,8 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
 
             <div className="toolbar">
               <button className="btn primary" onClick={() => onSendToWorkshop(selected.id)}>Send to Workshop →</button>
-              <button className="btn" onClick={() => handleExportEntry(selected)}>Download entry</button>
+              <button className="btn" onClick={() => handleExportEntryMD(selected)}>Save (.md)</button>
+              <button className="btn" onClick={() => handleExportEntry(selected)}>Save (.json)</button>
               <div className="spacer"></div>
               <button className="btn ghost tiny" onClick={() => handleDelete(selected.id)}>Remove</button>
             </div>
@@ -393,7 +457,8 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
 
         <div className="divider"></div>
         <div className="toolbar">
-          <button className="btn tiny" onClick={handleExport}>Export all (.json) for Drive / OneDrive</button>
+          <button className="btn tiny" onClick={handleExportAllMD}>Export all (.md)</button>
+          <button className="btn tiny" onClick={handleExport}>Export all (.json)</button>
         </div>
       </section>
     </div>
@@ -404,12 +469,30 @@ function RiverScreen({ store, setStore, toast, onSendToWorkshop }) {
 // WORKSHOP SCREEN — turn dump into outputs + parking lot
 // ─────────────────────────────────────────────────────────────────────
 const FORMATS = [
-  { id: 'journal',  icon: '✒',  name: 'Journal entry',    hint: 'Quiet prose, your voice kept whole' },
-  { id: 'article',  icon: '§',  name: 'Substack article', hint: '600–900 words, with a spine' },
-  { id: 'tiktok',   icon: '▶',  name: 'TikTok script',    hint: '30–60s, hook + beats' },
+  { id: 'journal',  icon: '✒',  name: 'Journal entry',    hint: 'Your voice, kept whole' },
+  { id: 'article',  icon: '§',  name: 'Substack article', hint: '600–900 words, one spine' },
   { id: 'product',  icon: '◐',  name: 'Product idea',     hint: 'Smallest buildable form' },
+  { id: 'tiktok',   icon: '▶',  name: 'TikTok script',    hint: '30–60s, hook + beats' },
   { id: 'tasks',    icon: '·',  name: 'Next-stone tasks', hint: 'One thing at a time' },
+  { id: 'letter',   icon: '✉',  name: 'Letter to self',   hint: 'Private, epistolary' },
+  { id: 'song',     icon: '♪',  name: 'Song / poem',      hint: 'Lyrical, from your voice' },
+  { id: 'suno',     icon: '♫',  name: 'Suno prompt',      hint: 'Ready to paste into Suno' },
+  { id: 'email',    icon: '→',  name: 'Email / message',  hint: 'Clear thoughts to send' },
+  { id: 'image',    icon: '◻',  name: 'Image prompt',     hint: 'A scene for AI to paint' },
 ];
+
+function FormatCard({ f, active, onSelect }) {
+  return (
+    <button
+      className={'format-card' + (active ? ' active' : '')}
+      onClick={() => onSelect(f.id)}
+    >
+      <span className="icon">{f.icon}</span>
+      <span className="name">{f.name}</span>
+      <span className="hint">{f.hint}</span>
+    </button>
+  );
+}
 
 function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }) {
   const sourceEntry = store.entries.find(e => e.id === sourceEntryId);
@@ -434,7 +517,7 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
       const result = await aiTransform(text, format, store.parking);
       setOutput(result);
     } catch (e) {
-      toast('The candle flickered. Try again.');
+      toast(e && e.message && e.message.length < 120 ? e.message : 'The candle flickered. Try again.');
     } finally {
       setWorking(false);
     }
@@ -448,18 +531,42 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
 
   const handleDownload = () => {
     if (!output) return;
-    const ext = format === 'tasks' ? 'md' : 'md';
     const blob = new Blob([output], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     const stamp = new Date().toISOString().slice(0, 10);
-    a.download = `candle-desk-${format}-${stamp}.${ext}`;
+    a.download = `candle-desk-${format}-${stamp}.md`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
     toast('Downloaded.');
+  };
+
+  const handleDownloadJSON = () => {
+    if (!output) return;
+    const d = new Date();
+    const payload = {
+      format,
+      date: d.toLocaleDateString(),
+      time: d.toLocaleTimeString(),
+      createdAt: d.toISOString(),
+      sourceTitle: sourceEntry?.title || null,
+      sourceTags: sourceEntry?.tags || [],
+      sourceCreatedAt: sourceEntry?.createdAt || null,
+      output,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `workshop-${format}-${d.toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast('Downloaded as JSON.');
   };
 
   const handleAddPark = () => {
@@ -483,15 +590,7 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
         <span className="label">Shape it into</span>
         <div className="format-grid" style={{marginTop: 10}}>
           {FORMATS.map(f => (
-            <button
-              key={f.id}
-              className={'format-card' + (format === f.id ? ' active' : '')}
-              onClick={() => setFormat(f.id)}
-            >
-              <span className="icon">{f.icon}</span>
-              <span className="name">{f.name}</span>
-              <span className="hint">{f.hint}</span>
-            </button>
+            <FormatCard key={f.id} f={f} active={format === f.id} onSelect={setFormat} />
           ))}
         </div>
 
@@ -548,7 +647,7 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
 
         <div className="toolbar">
           <button className="btn primary" onClick={handleTransform} disabled={working || !text.trim()}>
-            {working ? <span className="thinking"><span className="dot"></span><span className="dot"></span><span className="dot"></span></span> : `Shape into ${FORMATS.find(f => f.id === format).name.toLowerCase()}`}
+            {working ? <span className="thinking"><span className="dot"></span><span className="dot"></span><span className="dot"></span></span> : `Shape into ${FORMATS.find(f => f.id === format)?.name.toLowerCase() || format}`}
           </button>
         </div>
 
@@ -560,6 +659,7 @@ function WorkshopScreen({ store, setStore, toast, sourceEntryId, onClearSource }
             <div className="toolbar">
               <button className="btn" onClick={handleCopy}>Copy</button>
               <button className="btn" onClick={handleDownload}>Download (.md)</button>
+              <button className="btn" onClick={handleDownloadJSON}>Download (.json)</button>
               <div className="spacer"></div>
               <button className="btn ghost tiny" onClick={() => setOutput('')}>Clear output</button>
             </div>
